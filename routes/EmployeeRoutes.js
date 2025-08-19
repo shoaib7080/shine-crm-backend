@@ -31,7 +31,7 @@ const uploadFields = upload.fields([
   { name: "experience_letter", maxCount: 10 },
 ]);
 
-// Employee routes
+// Employee routes /api/employees
 router.post("/", uploadFields, createEmployee);
 router.put("/:id", uploadFields, updateEmployee);
 router.get("/", getEmployees);
@@ -43,7 +43,11 @@ router.patch("/employees/:id/toggle-current", toggleCurrentEmployee);
 // Contract-related routes
 router.get("/:id/contract/preview", previewContract);
 router.patch("/:id/contract/accept", acceptContract);
-router.put("/:id/contract/update", updateContract);
+router.put(
+  "/:id/contract/update",
+  upload.fields([{ name: "signature", maxCount: 1 }]),
+  updateContract
+);
 router.get("/:id/contract/download", downloadContract);
 // router.post('/:id/accept-policy', acceptPolicy);
 // router.get('/:id/policy-status', getPolicyStatus);

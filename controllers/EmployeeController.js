@@ -1,9 +1,9 @@
-import Employee from '../models/Employee.js';
-import { uploadToCloudinary, deleteFromCloudinary } from '../utils/upload.js';
-import createHttpError from 'http-errors';
-import pdf from 'html-pdf';
-import { renderContractHTML } from '../utils/contract.utils.js';
-import _ from 'lodash';
+import Employee from "../models/Employee.js";
+import { uploadToCloudinary, deleteFromCloudinary } from "../utils/upload.js";
+import createHttpError from "http-errors";
+import pdf from "html-pdf";
+import { renderContractHTML } from "../utils/contract.utils.js";
+import _ from "lodash";
 
 // Process files and upload to Cloudinary
 export const processFiles = async (req) => {
@@ -12,38 +12,41 @@ export const processFiles = async (req) => {
 
   // Helper to pick the right source
   const getSource = (file) =>
-    file.path           // multer.diskStorage
-    || file.tempFilePath // express-fileupload
-    || (file.buffer && Buffer.isBuffer(file.buffer) && file.buffer) // multer.memoryStorage
-    || null;
+    file.path || // multer.diskStorage
+    file.tempFilePath || // express-fileupload
+    (file.buffer && Buffer.isBuffer(file.buffer) && file.buffer) || // multer.memoryStorage
+    null;
 
   // Process regular files (non-experience_letter)
   for (const field of Object.keys(req.files)) {
-    if (field.startsWith('experience_letter_')) continue;
-    
+    if (field.startsWith("experience_letter_")) continue;
+
     const files = Array.isArray(req.files[field])
       ? req.files[field]
       : [req.files[field]];
 
-    const uploads = await Promise.all(files.map(file => {
-      const src = getSource(file);
-      if (!src) {
-        console.warn(`Skipping upload for ${field}: no file buffer or path`);
-        return null;
-      }
-      return uploadToCloudinary(src, "employees");
-    }));
+    const uploads = await Promise.all(
+      files.map((file) => {
+        const src = getSource(file);
+        if (!src) {
+          console.warn(`Skipping upload for ${field}: no file buffer or path`);
+          return null;
+        }
+        return uploadToCloudinary(src, "employees");
+      })
+    );
 
     // Filter out any nulls, then unwrap singletons
-    const results = uploads.filter(r => r !== null);
+    const results = uploads.filter((r) => r !== null);
     fileData[field] = results.length === 1 ? results[0] : results;
   }
 
   // Process experience_letter_* fields
   const expFields = Object.keys(req.files)
-    .filter(f => f.startsWith('experience_letter_'))
+    .filter((f) => f.startsWith("experience_letter_"))
     .sort((a, b) => {
-      const ai = +a.split('_')[2], bi = +b.split('_')[2];
+      const ai = +a.split("_")[2],
+        bi = +b.split("_")[2];
       return ai - bi;
     });
 
@@ -54,16 +57,20 @@ export const processFiles = async (req) => {
         ? req.files[field]
         : [req.files[field]];
 
-      const uploads = await Promise.all(files.map(file => {
-        const src = getSource(file);
-        if (!src) {
-          console.warn(`Skipping upload for ${field}: no file buffer or path`);
-          return null;
-        }
-        return uploadToCloudinary(src, "employees");
-      }));
+      const uploads = await Promise.all(
+        files.map((file) => {
+          const src = getSource(file);
+          if (!src) {
+            console.warn(
+              `Skipping upload for ${field}: no file buffer or path`
+            );
+            return null;
+          }
+          return uploadToCloudinary(src, "employees");
+        })
+      );
 
-      fileData.experience_letter.push(...uploads.filter(r => r !== null));
+      fileData.experience_letter.push(...uploads.filter((r) => r !== null));
     }
   }
 
@@ -113,10 +120,12 @@ export const createEmployee = async (req, res) => {
 
     // 🧾 Attach experience letters to work_experience array
     if (employeeData.work_experience && fileData.experience_letter) {
-      employeeData.work_experience = employeeData.work_experience.map((exp, i) => ({
-        ...exp,
-        experience_letter: fileData.experience_letter[i] || null,
-      }));
+      employeeData.work_experience = employeeData.work_experience.map(
+        (exp, i) => ({
+          ...exp,
+          experience_letter: fileData.experience_letter[i] || null,
+        })
+      );
     }
 
     // 💾 Save employee
@@ -128,7 +137,6 @@ export const createEmployee = async (req, res) => {
       data: savedEmployee,
       message: "Employee created successfully",
     });
-
   } catch (error) {
     console.error("Error creating employee:", error);
 
@@ -165,41 +173,41 @@ export const getEmployees = async (req, res) => {
     const employees = await Employee.find().sort({ employee_id: 1 });
     res.status(200).json({
       success: true,
-      data: employees
+      data: employees,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: "Server error",
     });
   }
 };
- 
+
 // Get Single Employee
 export const getEmployeeById = async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id);
-    
+
     if (!employee) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: "Employee not found",
       });
     }
-    
+
     res.status(200).json({
       success: true,
-      data: employee
+      data: employee,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: "Server error",
     });
   }
-}; 
- 
-// Update Employee 
+};
+
+// Update Employee
 export const updateEmployee = async (req, res) => {
   try {
     const fileData = await processFiles(req);
@@ -207,13 +215,14 @@ export const updateEmployee = async (req, res) => {
     // Parse safely
     let employeeData;
     try {
-      employeeData = typeof req.body.employeeData === 'string'
-        ? JSON.parse(req.body.employeeData)
-        : req.body.employeeData || req.body;
+      employeeData =
+        typeof req.body.employeeData === "string"
+          ? JSON.parse(req.body.employeeData)
+          : req.body.employeeData || req.body;
     } catch (parseError) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid JSON format in employeeData'
+        message: "Invalid JSON format in employeeData",
       });
     }
 
@@ -221,7 +230,9 @@ export const updateEmployee = async (req, res) => {
 
     const employee = await Employee.findById(req.params.id);
     if (!employee) {
-      return res.status(404).json({ success: false, message: 'Employee not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Employee not found" });
     }
 
     // === File Handling ===
@@ -252,7 +263,7 @@ export const updateEmployee = async (req, res) => {
           return fileData.pan_document;
         }
         return employee.pan_document;
-      }
+      },
     };
 
     for (const [field, handler] of Object.entries(fileUpdateHandlers)) {
@@ -276,7 +287,7 @@ export const updateEmployee = async (req, res) => {
 
     employeeData.documents.other_docs = [
       ...(employee.documents?.other_docs || []),
-      ...(fileData.other_docs || [])
+      ...(fileData.other_docs || []),
     ];
 
     // === Experience Letter Fix ===
@@ -305,7 +316,7 @@ export const updateEmployee = async (req, res) => {
           // If no upload, retain previous
           return {
             ...exp,
-            experience_letter: existing?.experience_letter || null
+            experience_letter: existing?.experience_letter || null,
           };
         })
       );
@@ -320,77 +331,75 @@ export const updateEmployee = async (req, res) => {
     res.status(200).json({
       success: true,
       data: updatedEmployee,
-      message: 'Employee updated successfully'
+      message: "Employee updated successfully",
     });
-
   } catch (error) {
-    console.error('Error updating employee:', error);
+    console.error("Error updating employee:", error);
     res.status(400).json({
       success: false,
-      message: error.message || "Update failed"
+      message: error.message || "Update failed",
     });
   }
 };
- 
- 
+
 // Delete Employee
 export const deleteEmployee = async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id);
-    
+
     if (!employee) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: "Employee not found",
       });
     }
-    
+
     // Delete all associated files from Cloudinary
     const deletePromises = [];
-    
+
     const deleteIfExists = (file) => {
       if (file?.public_id) {
         deletePromises.push(deleteFromCloudinary(file.public_id));
       }
     };
-    
+
     // Delete profile images and documents
     deleteIfExists(employee.profile_image);
     deleteIfExists(employee.aadhar_document);
     deleteIfExists(employee.pan_document);
-    
+
     // Delete documents
     if (employee.documents) {
       deleteIfExists(employee.documents.resume);
       deleteIfExists(employee.documents.offer_letter);
       deleteIfExists(employee.documents.joining_letter);
-      
+
       if (employee.documents.other_docs) {
         employee.documents.other_docs.forEach(deleteIfExists);
       }
     }
-    
+
     // Delete work experience files
     if (employee.work_experience) {
-      employee.work_experience.forEach(exp => {
+      employee.work_experience.forEach((exp) => {
         deleteIfExists(exp.experience_letter);
       });
     }
-    
+
     // Wait for all deletions to complete
     await Promise.all(deletePromises);
-    
+
     await employee.deleteOne();
-    
+
     res.status(200).json({
       success: true,
-      message: 'Employee deleted successfully'
+      message: "Employee deleted successfully",
     });
   } catch (error) {
-    console.error('Error deleting employee:', error);
+    console.error("Error deleting employee:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: "Server error",
     });
   }
 };
@@ -403,61 +412,61 @@ export const deleteDocument = async (req, res) => {
     if (!employee) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: "Employee not found",
       });
     }
-    
+
     // Delete file from Cloudinary
     await deleteFromCloudinary(public_id);
-    
+
     // Update operations mapping
     const updateOperations = {
       other_docs: {
-        $pull: { 'documents.other_docs': { public_id } }
+        $pull: { "documents.other_docs": { public_id } },
       },
-      
+
       experience_letter: {
-        $set: { 
-          'work_experience.$[elem].experience_letter': null 
-        }
+        $set: {
+          "work_experience.$[elem].experience_letter": null,
+        },
       },
-      
+
       resume: {
-        $unset: { 'documents.resume': 1 }
+        $unset: { "documents.resume": 1 },
       },
-      
+
       offer_letter: {
-        $unset: { 'documents.offer_letter': 1 }
+        $unset: { "documents.offer_letter": 1 },
       },
-      
+
       joining_letter: {
-        $unset: { 'documents.joining_letter': 1 }
+        $unset: { "documents.joining_letter": 1 },
       },
-      
+
       profile_image: {
-        $unset: { 'profile_image': 1 }
+        $unset: { profile_image: 1 },
       },
-      
+
       aadhar_document: {
-        $unset: { 'aadhar_document': 1 }
+        $unset: { aadhar_document: 1 },
       },
-      
+
       pan_document: {
-        $unset: { 'pan_document': 1 }
-      }
+        $unset: { pan_document: 1 },
+      },
     };
 
     if (!updateOperations[docType]) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid document type'
+        message: "Invalid document type",
       });
     }
 
     let updateOptions = {};
-    if (docType === 'experience_letter') {
+    if (docType === "experience_letter") {
       updateOptions = {
-        arrayFilters: [{ 'elem.experience_letter.public_id': public_id }]
+        arrayFilters: [{ "elem.experience_letter.public_id": public_id }],
       };
     }
 
@@ -469,13 +478,13 @@ export const deleteDocument = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Document deleted successfully'
+      message: "Document deleted successfully",
     });
   } catch (error) {
-    console.error('Error deleting document:', error);
+    console.error("Error deleting document:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: "Server error",
     });
   }
 };
@@ -519,7 +528,7 @@ export const previewContract = async (req, res) => {
     }
 
     const html = renderContractHTML(employee);
-    res.set('Content-Type', 'text/html');
+    res.set("Content-Type", "text/html");
     res.send(html);
   } catch (err) {
     console.error("Contract preview error:", err);
@@ -536,18 +545,18 @@ export const acceptContract = async (req, res, next) => {
       id,
       {
         $set: {
-          'contract_agreement.acceptance.accepted': true,
-          'contract_agreement.acceptance.accepted_at': new Date()
-        }
+          "contract_agreement.acceptance.accepted": true,
+          "contract_agreement.acceptance.accepted_at": new Date(),
+        },
       },
       { new: true }
     );
 
-    if (!updated) throw createHttpError(404, 'Employee not found');
+    if (!updated) throw createHttpError(404, "Employee not found");
 
     res.status(200).json({
       success: true,
-      acceptance: updated.contract_agreement.acceptance
+      acceptance: updated.contract_agreement.acceptance,
     });
   } catch (err) {
     next(err);
@@ -560,6 +569,20 @@ export const updateContract = async (req, res, next) => {
     const { id } = req.params;
     const updates = {};
 
+    // Handle signature image upload if present
+    if (req.files && req.files.signature) {
+      const signatureFile = req.files.signature[0];
+      const signatureResult = await uploadToCloudinary(
+        signatureFile.path,
+        "signatures"
+      );
+      updates["contract_agreement.signature"] = {
+        url: signatureResult.secure_url,
+        public_id: signatureResult.public_id,
+      };
+    }
+
+    // Handle other contract updates
     Object.entries(req.body).forEach(([key, val]) => {
       updates[`contract_agreement.${key}`] = val;
     });
@@ -574,7 +597,8 @@ export const updateContract = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      contract: updated.contract_agreement
+      contract: updated.contract_agreement,
+      signature: updated.contract_agreement.signature,
     });
   } catch (err) {
     next(err);
@@ -590,7 +614,7 @@ export const downloadContract = async (req, res) => {
     if (!employee) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: "Employee not found",
       });
     }
 
@@ -601,40 +625,40 @@ export const downloadContract = async (req, res) => {
         top: "2mm",
         right: "2mm",
         bottom: "2mm",
-        left: "2mm"
+        left: "2mm",
       },
-      zoomFactor: 0.75, 
+      zoomFactor: 0.75,
       paginationOffset: 1,
       header: {
-        height: "0mm"
+        height: "0mm",
       },
       footer: {
-        height: "0mm"
-      }
+        height: "0mm",
+      },
     };
 
     pdf.create(html, options).toBuffer((err, buffer) => {
       if (err) {
-        console.error('PDF generation error:', err);
+        console.error("PDF generation error:", err);
         return res.status(500).json({
           success: false,
-          message: 'PDF generation failed'
+          message: "PDF generation failed",
         });
       }
 
       res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=Employment_Contract_${employee.employee_id}.pdf`,
-        'Content-Length': buffer.length
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename=Employment_Contract_${employee.employee_id}.pdf`,
+        "Content-Length": buffer.length,
       });
 
       res.send(buffer);
     });
   } catch (error) {
-    console.error('Contract PDF generation error:', error);
+    console.error("Contract PDF generation error:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error while generating contract'
+      message: "Internal server error while generating contract",
     });
   }
 };
